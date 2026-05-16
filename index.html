@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Weather Command</title>
+    
+    <!-- --- iOS NATIVE APP HOOKS --- -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Orono Weather">
+    <!-- Links a clean weather icon for your iPhone Home Screen -->
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/180/weather.png">
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0b132b, #1c2541, #3a506b);
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-main: #ffffff;
+            --text-sub: #a5b1c2;
+            --accent: #48dbfb;
+            --accent-purple: #a55eea;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            /* Padding accommodates iPhone dynamic island or notch */
+            padding: env(safe-area-inset-top) 15px 30px 15px;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .dashboard {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 25px 20px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
+            margin-top: 15px;
+        }
+
+        .tab-navigation {
+            display: flex;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 14px;
+            padding: 4px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 2px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            padding: 10px 2px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.25s ease;
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-main);
+        }
+
+        .view-panel { display: none; }
+        .view-panel.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+
+        /* Current View Metrics layout */
+        .main-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            margin: 15px 0;
+        }
+
+        .temp-display {
+            font-size: 5rem;
+            font-weight: 200;
+            line-height: 1;
+            position: relative;
+        }
+
+        .temp-display span {
+            font-size: 2rem;
+            color: var(--accent);
+            position: absolute;
+            top: 0;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .metric-card {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 14px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .metric-val { font-size: 1.1rem; font-weight: 600; margin-top: 4px; }
+        .metric-lbl { font-size: 0.7rem; color: var(--text-sub); text-transform: uppercase; }
+
+        /* Forecast View List layout */
+        .forecast-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .forecast-row {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px 15px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .fc-day { font-weight: 600; }
+        .fc-cond { color: var(--text-sub); font-size: 0.85rem; flex: 1; text-align: left; margin-left: 15px; }
+        .fc-temps { font-weight: 600; }
+        .fc-temps .low { color: var(--text-sub); margin-left: 6px; font-weight: 400; }
+
+        /* History Table Layout */
+        .history-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+        th { color: var(--accent-purple); padding: 10px 5px; border-bottom: 2px solid rgba(255, 255, 255, 0.1); text-transform: uppercase; font-size: 0.75rem; }
+        td { padding: 10px 5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+
+        /* Mobile Frame Specific Radar Fix */
+        .radar-container {
+            width: 100%;
+            height: 340px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+        }
+        .radar-container iframe { width: 100%; height: 100%; border: none; }
+
+        .header h1 { font-size: 1.8rem; margin: 0; font-weight: 600; }
+        .header p { color: var(--text-sub); margin: 3px 0 0 0; font-size: 0.9rem; text-transform: capitalize; }
+        .weather-pic img { width: 75px; height: 75px; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <h1 id="city-name">Orono, Maine</h1>
+            <p id="description">Accessing weather cores...</p>
+        </div>
+
+        <div class="tab-navigation">
+            <button class="tab-btn active" onclick="switchView('current', this)">Current</button>
+            <button class="tab-btn" onclick="switchView('forecast', this)">10-Day</button>
+            <button class="tab-btn" onclick="switchView('radar', this)">Radar</button>
+            <button class="tab-btn" onclick="switchView('history', this)">History</button>
+        </div>
+
+        <!-- PANEL 1 -->
+        <div id="current" class="view-panel active">
+            <div class="main-display">
+                <div class="weather-pic" id="icon-container">⏳</div>
+                <div class="temp-display" id="temp-value">--</div>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric-card"><span>🌡️</span><span class="metric-val" id="feels-like">--</span><span class="metric-lbl">Feels Like</span></div>
+                <div class="metric-card"><span>💧</span><span class="metric-val" id="humidity">--</span><span class="metric-lbl">Humidity</span></div>
+                <div class="metric-card"><span>💨</span><span class="metric-val" id="wind">--</span><span class="metric-lbl">Wind</span></div>
+                <div class="metric-card"><span>👁️</span><span class="metric-val" id="visibility">--</span><span class="metric-lbl">Visibility</span></div>
+            </div>
+        </div>
+
+        <!-- PANEL 2 -->
+        <div id="forecast" class="view-panel">
+            <div class="forecast-list" id="forecast-container"></div>
+        </div>
+
+        <!-- PANEL 3 -->
+        <div id="radar" class="view-panel">
+            <div class="radar-container">
+                <iframe src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricWind=default&radarRange=-1&zoom=8&overlay=radar&product=radar&level=surface&lat=44.883&lon=-68.672" allowfullscreen></iframe>
+            </div>
+        </div>
+
+        <!-- PANEL 4 -->
+        <div id="history" class="view-panel">
+            <div class="history-wrapper">
+                <table>
+                    <thead>
+                        <tr><th>Year</th><th>Avg</th><th>Max</th><th>Min</th><th>Precip</th></tr>
+                    </thead>
+                    <tbody id="history-container"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = '10be410570c9ae32827a6f6716b9c3c9';
+        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=Orono,me,us&appid=${API_KEY}&units=imperial`;
+
+        function switchView(panelId, element) {
+            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(panelId).classList.add('active');
+            element.classList.add('active');
+        }
+
+        const mockForecastData = [
+            { day: "Today", cond: "Scattered Clouds", high: 76, low: 55 },
+            { day: "Tomorrow", cond: "Sunny", high: 77, low: 42 },
+            { day: "Monday", cond: "Partly Cloudy", high: 70, low: 48 },
+            { day: "Tuesday", cond: "Heavy Rain", high: 86, low: 61 },
+            { day: "Wednesday", cond: "Thunderstorms", high: 83, low: 53 },
+            { day: "Thursday", cond: "Overcast", high: 66, low: 41 },
+            { day: "Friday", cond: "Clear Skies", high: 63, low: 40 },
+            { day: "Saturday", cond: "Clear", high: 64, low: 44 },
+            { day: "Sunday", cond: "Light Showers", high: 66, low: 47 },
+            { day: "Monday", cond: "Isolated T-Storms", high: 69, low: 52 }
+        ];
+
+        const mockHistoricalData = [
+            { year: "2025", avg: "46.2°", high: "93.4°", low: "-16.1°", rain: "43.2\"" },
+            { year: "2024", avg: "45.8°", high: "91.0°", low: "-12.5°", rain: "46.8\"" },
+            { year: "2023", avg: "47.1°", high: "94.2°", low: "-21.0°", rain: "41.5\"" },
+            { year: "2022", avg: "44.9°", high: "89.8°", low: "-18.3°", rain: "39.1\"" },
+            { year: "2010", avg: "45.2°", high: "92.1°", low: "-14.0°", rain: "42.7\"" }
+        ];
+
+        async function runWeatherEngine() {
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (!response.ok) throw new Error();
+
+                document.getElementById('description').textContent = data.weather[0].description;
+                document.getElementById('temp-value').innerHTML = `${Math.round(data.main.temp)}<span>°F</span>`;
+                document.getElementById('icon-container').innerHTML = `<img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png">`;
+                document.getElementById('feels-like').textContent = `${Math.round(data.main.feels_like)}°F`;
+                document.getElementById('humidity').textContent = `${data.main.humidity}%`;
+                document.getElementById('wind').textContent = `${Math.round(data.wind.speed)} mph`;
+                document.getElementById('visibility').textContent = `${(data.visibility / 1609.34).toFixed(1)} mi`;
+            } catch (err) {
+                document.getElementById('description').textContent = "Offline Mode";
+                document.getElementById('temp-value').innerHTML = `72<span>°F</span>`;
+                document.getElementById('icon-container').innerHTML = "🌤️";
+                document.getElementById('feels-like').textContent = "71°F";
+                document.getElementById('humidity').textContent = "45%";
+                document.getElementById('wind').textContent = "7 mph";
+                document.getElementById('visibility').textContent = "10.0 mi";
+            }
+
+            document.getElementById('forecast-container').innerHTML = mockForecastData.map(f => `
+                <div class="forecast-row">
+                    <span class="fc-day">${f.day}</span>
+                    <span class="fc-cond">${f.cond}</span>
+                    <span class="fc-temps"><span style="color:#fff">${f.high}°</span> <span style="color:var(--text-sub)">${f.low}°</span></span>
+                </div>
+            `).join('');
+
+            document.getElementById('history-container').innerHTML = mockHistoricalData.map(h => `
+                <tr><td><strong>${h.year}</strong></td><td>${h.avg}</td><td>${h.high}</td><td><span style="color:#ff7675">${h.low}</span></td><td>${h.rain}</td></tr>
+            `).join('');
+        }
+        runWeatherEngine();
+    </script>
+</body>
+</html>
